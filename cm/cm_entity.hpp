@@ -25,14 +25,18 @@ public:
 	//creates the appropriate derived class
 	[[nodiscard]] static std::unique_ptr<CGameEntity> CreateEntity(gentity_s* const g);
 
-	virtual void RB_Render3D(const cm_renderinfo& info) const;
+	[[nodiscard]] virtual bool RB_MakeInteriorsRenderable([[maybe_unused]] const cm_renderinfo& info) const { return false; }
+	[[nodiscard]] virtual bool RB_MakeOutlinesRenderable([[maybe_unused]] const cm_renderinfo& info, [[maybe_unused]] int& nverts) const { return false; }
+	void RB_RenderConnections(const cm_renderinfo& info, int& nverts) const;
+
 	virtual void CG_Render2D(float drawDist) const;
 
 	void GenerateConnections(const LevelGentities_t& gentities);
 
+	[[nodiscard]] virtual int GetNumVerts() const noexcept { return 0; }
+
 protected:
 
-	void RB_RenderConnections(const cm_renderinfo& info) const;
 
 	[[nodiscard]] bool IsBrushModel() const noexcept;
 
@@ -58,18 +62,25 @@ public:
 	CBrushModel(gentity_s* const g);
 	~CBrushModel();
 
-	void RB_Render3D(const cm_renderinfo& info) const override;
 
+	[[nodiscard]] bool RB_MakeInteriorsRenderable([[maybe_unused]] const cm_renderinfo& info) const override;
+	[[nodiscard]] bool RB_MakeOutlinesRenderable([[maybe_unused]] const cm_renderinfo& info, int& nverts) const override;
+
+	[[nodiscard]] int GetNumVerts() const noexcept override;
 
 	struct CIndividualBrushModel
 	{
 		CIndividualBrushModel(gentity_s* const g);
 		virtual ~CIndividualBrushModel();
 
-		virtual void RB_Render3D(const cm_renderinfo& info) const;
+		[[nodiscard]] virtual bool RB_MakeInteriorsRenderable(const cm_renderinfo& info) const;
+		[[nodiscard]] virtual bool RB_MakeOutlinesRenderable(const cm_renderinfo& info, int& nverts) const;
 
 		[[nodiscard]] virtual const cm_geometry& GetSource() const noexcept = 0;
 		virtual void OnPositionChanged(const fvec3& newOrigin, const fvec3& newAngles) = 0;
+
+		[[nodiscard]] virtual int GetNumVerts() const noexcept = 0;
+
 
 	protected:
 		[[nodiscard]] virtual fvec3 GetCenter() const noexcept;
@@ -83,11 +94,13 @@ public:
 		CBrush(gentity_s* const g, const cbrush_t* const brush);
 		~CBrush();
 
-		void RB_Render3D(const cm_renderinfo& info) const override;
-
+		[[nodiscard]] bool RB_MakeInteriorsRenderable(const cm_renderinfo& info) const override;
+		[[nodiscard]] bool RB_MakeOutlinesRenderable(const cm_renderinfo& info, int& nverts) const override;
 
 		void OnPositionChanged(const fvec3& newOrigin, const fvec3& newAngles) override;
 		[[nodiscard]] const cm_geometry& GetSource() const noexcept override;
+
+		[[nodiscard]] int GetNumVerts() const noexcept override { return m_oCurrentGeometry.num_verts; }
 
 	private:
 		cm_brush m_oOriginalGeometry;
@@ -101,8 +114,13 @@ public:
 		CTerrain(gentity_s* const g, const cLeaf_t* const leaf);
 		~CTerrain();
 
+		[[nodiscard]] bool RB_MakeInteriorsRenderable(const cm_renderinfo& info) const override;
+		[[nodiscard]] bool RB_MakeOutlinesRenderable(const cm_renderinfo& info, int& nverts) const override;
+
 		void OnPositionChanged(const fvec3& newOrigin, const fvec3& newAngles) override;
 		[[nodiscard]] const cm_geometry& GetSource() const noexcept override;
+
+		[[nodiscard]] int GetNumVerts() const noexcept override { return m_oCurrentGeometry.num_verts; }
 
 	private:
 		cm_terrain m_oOriginalGeometry;

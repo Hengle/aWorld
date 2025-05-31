@@ -75,6 +75,8 @@ std::unique_ptr<cm_geometry> CM_GetBrushPoints(const cbrush_t* brush, const fvec
 	c_brush->brush = const_cast<cbrush_t*>(brush);
 	c_brush->origin = fvec3(brush->mins) + ((fvec3(brush->maxs) - fvec3(brush->mins)) / 2);
 	c_brush->originalContents = brush->contents;
+	c_brush->mins = brush->mins;
+	c_brush->maxs = brush->maxs;
 
 	do {
 		if (const auto w = BuildBrushdAdjacencyWindingForSide(intersections, pts, outPlanes[intersection], intersection, &windings[intersection])) {
@@ -315,6 +317,23 @@ bool CM_BrushInView(const cbrush_t* brush, struct cplane_s* frustumPlanes, int n
 	cplane_s* plane = frustumPlanes;
 	int idx = 0;
 	while ((BoxOnPlaneSide(brush->mins, brush->maxs, plane) & 1) != 0) {
+		++plane;
+		++idx;
+
+		if (idx >= numPlanes)
+			return 1;
+	}
+
+	return 0;
+}
+bool CM_BoundsInView(const fvec3& mins, const fvec3& maxs, struct cplane_s* frustumPlanes, int numPlanes)
+{
+	if (numPlanes <= 0)
+		return 1;
+
+	cplane_s* plane = frustumPlanes;
+	int idx = 0;
+	while ((BoxOnPlaneSide(mins, maxs, plane) & 1) != 0) {
 		++plane;
 		++idx;
 

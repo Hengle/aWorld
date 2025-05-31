@@ -3,6 +3,7 @@
 #include "cm/cm_typedefs.hpp"
 #include "cm/cm_export.hpp"
 #include "cm/cm_entity.hpp"
+#include "cm/cm_renderer.hpp"
 
 #include "cg/cg_local.hpp"
 #include "cg/cg_memory.hpp"
@@ -46,12 +47,13 @@ static void NVar_Setup([[maybe_unused]]NVarTable* table)
 
     const auto showCollision = table->AddImNvar<bool, ImCheckbox>("Show Collision", false, NVar_ArithmeticToString<bool>);
     {
-        showCollision->AddImChild<float, ImDragFloat>("Draw Distance", 2500.f, NVar_ArithmeticToString<float>, nvar_saved, 0.f, 10000.f, "%.1f");
+        showCollision->AddImChild<float, ImDragFloat>("Draw Distance", 2500.f, NVar_ArithmeticToString<float>, nvar_saved, 0.f, 10000.f, 0.f, "%.1f");
 
-        showCollision->AddImChild<bool, ImCheckbox>("As Polygons", true, NVar_ArithmeticToString<bool>, nvar_saved)
+        const std::vector<std::string> values = { "Edges", "Polygons", "Both" };
+        showCollision->AddImChild<int, ImComboBox>("Poly type", (int)EPolyType::pt_both, NVar_ArithmeticToString<int>, nvar_saved, values)
             ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, "Render the planes instead of edges");
 
-        showCollision->AddImChild<float, ImDragFloat>("Transparency", 0.7f, NVar_ArithmeticToString<float>, nvar_saved, 0.f, 1.f, "%.2f");
+        showCollision->AddImChild<float, ImDragFloat>("Transparency", 0.7f, NVar_ArithmeticToString<float>, nvar_saved, 0.f, 1.f, 0.f, "%.2f");
         showCollision->AddImChild<bool, ImCheckbox>("Depth Test", true, NVar_ArithmeticToString<bool>, nvar_saved)
             ->AddWidget<std::string, ImHintString>("hintstring", eWidgetFlags::no_flags, "don't draw through walls");
 
@@ -108,7 +110,7 @@ static void NVar_Setup([[maybe_unused]]NVarTable* table)
 
 
         }
-
+        table->AddImNvar<bool, ImCheckbox>("Developer", false, NVar_ArithmeticToString<bool>);
     }
 
 
@@ -157,16 +159,17 @@ void CG_Init()
 #else
 void CG_Init()
 {
-    while (!dx || !dx->device) {
-        std::this_thread::sleep_for(100ms);
-    }
-
+    auto numAttempts = 0u;
     while (!CMain::Shared::AddFunction || !CMain::Shared::GetFunction) {
         std::this_thread::sleep_for(200ms);
+
+        if (++numAttempts > 25u) {
+            return CG_SafeErrorExit("It seems that the module " + std::string(NVAR_TABLE_NAME) + " couldn't get a connection to the main module");
+        }
     }
 
     Sys_SuspendAllThreads();
-    std::this_thread::sleep_for(300ms);
+    std::this_thread::sleep_for(20ms);
 
     COD4X::initialize();
 
@@ -192,6 +195,9 @@ void CG_Init()
     CMain::Shared::GetFunctionOrExit("Queue_RB_EndScene")->As<void, rb_endscene_t>()->Call(RB_DrawDebug);
     CMain::Shared::GetFunctionOrExit("Queue_CG_Cleanup")->As<void, cg_cleanup_t>()->Call(CG_Cleanup);
 
+    //so that all modules know what render method is currently available
+#pragma warning(suppress : 6011) //shut up false positive
+    CMain::Shared::AddFunction(std::make_unique<CSharedFunction<bool>>("CM_IsRenderingAsPolygons", CM_IsRenderingAsPolygons));
 
     CG_CreatePermaHooks();
 

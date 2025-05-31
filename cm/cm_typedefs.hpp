@@ -32,10 +32,11 @@ enum class showCollisionType
 	TERRAIN,
 	BOTH
 };
-enum class polyType
+enum EPolyType : char
 {
-	EDGES,
-	POLYS,
+	pt_edges,
+	pt_polys,
+	pt_both
 };
 
 enum class cm_geomtype
@@ -151,19 +152,18 @@ private:
 	}
 };
 
+
 struct cm_renderinfo
 {
 	cplane_s* frustum_planes = {};
 	int num_planes = {};
 	float draw_dist = {};
 	bool depth_test = {};
-	bool as_polygons = {};
+	EPolyType poly_type = {};
 	bool only_colliding = {};
 	bool only_bounces = {};
 	int only_elevators = {};
 	float alpha = 0.7f;
-
-
 };
 
 class brushModelEntity;
@@ -171,11 +171,17 @@ class brushModelEntity;
 struct cm_geometry
 {
 	virtual ~cm_geometry() = default;
-	virtual void render(const cm_renderinfo& info) const = 0;
 	virtual constexpr cm_geomtype type() const noexcept = 0;
 	virtual int map_export(std::stringstream& o, int index) = 0;
-	virtual void render2d() = 0;
+	virtual void render2d() { return; }
+
+	[[nodiscard]] virtual bool RB_MakeInteriorsRenderable([[maybe_unused]] const cm_renderinfo& info) const { return false; }
+	[[nodiscard]] virtual bool RB_MakeOutlinesRenderable([[maybe_unused]] const cm_renderinfo& info, [[maybe_unused]] int& nverts) const {
+		return false;
+	}
+
 	fvec3 origin;
+	fvec3 mins, maxs;
 	bool has_collisions = {};
 	int originalContents = {};
 	int num_verts = {};
@@ -193,8 +199,9 @@ struct cm_brush : public cm_geometry
 	cm_geomtype type() const noexcept override { return cm_geomtype::brush; }
 
 	void create_corners();
-	void render(const cm_renderinfo& info) const override;
-	void render2d() override {}
+
+	[[nodiscard]] bool RB_MakeInteriorsRenderable(const cm_renderinfo& info) const override;
+	[[nodiscard]] bool RB_MakeOutlinesRenderable(const cm_renderinfo& info, int& nverts) const override;
 
 	friend void __cdecl adjacency_winding(adjacencyWinding_t* w, float* points, vec3_t normal, unsigned int i0, unsigned int i1, unsigned int i2);
 	friend std::unique_ptr<cm_geometry> CM_GetBrushPoints(const cbrush_t* brush, const fvec3& poly_col);
@@ -213,8 +220,6 @@ private:
 		fvec3 maxs;
 	};
 
-	fvec3 mins;
-
 	std::vector<const cm_winding*> corners;
 
 };
@@ -227,11 +232,12 @@ struct cm_terrain : public cm_geometry
 
 	constexpr cm_geomtype type() const noexcept override { return cm_geomtype::terrain; }
 
-	void render(const cm_renderinfo& info) const override;
 	void render2d() override;
 
+	[[nodiscard]] bool RB_MakeInteriorsRenderable(const cm_renderinfo& info) const override;
+	[[nodiscard]] bool RB_MakeOutlinesRenderable(const cm_renderinfo& info, int& nverts) const override;
+
 	bool CM_LeafToGeometry(const cLeaf_t* leaf, const std::unordered_set<std::string>& filters);
-	//void sort_tree();
 
 protected:
 	int map_export(std::stringstream& o, int index) override;
@@ -252,7 +258,6 @@ struct cm_model : public cm_geometry
 		name(_name), origin(_origin), angles(_angles), modelscale(_modelscale) {}
 	~cm_model() = default;
 
-	void render([[maybe_unused]] const cm_renderinfo& info) const override {};
 	void render2d() override {};
 
 	constexpr cm_geomtype type() const noexcept override { return cm_geomtype::model; }

@@ -47,7 +47,7 @@ void CWorldWindow::Render()
 
 	ImGui::NewLine();
 	ImGui::Separator();
-	ImGui::Text("note: if you are rendering entity connections, disable \"As Polygons\"");
+	ImGui::Text("note: if you are rendering entity connections, disable polygon rendering");
 
 }
 
